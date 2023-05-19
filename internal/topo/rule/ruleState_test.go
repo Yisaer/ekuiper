@@ -462,4 +462,19 @@ func TestScheduleRule(t *testing.T) {
 			return
 		}
 	}()
+	func() {
+		rs, err := NewRuleState(r)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if err := rs.startScheduleRule(); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := rs.Close(); err != nil {
+			t.Error(err)
+			return
+		}
+	}()
 }
