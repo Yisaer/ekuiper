@@ -76,6 +76,7 @@ func Walk(v Visitor, node Node) {
 	case *Window:
 		Walk(v, n.Length)
 		Walk(v, n.Interval)
+		Walk(v, n.Delay)
 		Walk(v, n.Filter)
 
 	case SortFields:

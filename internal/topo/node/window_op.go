@@ -35,6 +35,7 @@ type WindowConfig struct {
 	Type     ast.WindowType
 	Length   int
 	Interval int // If interval is not set, it is equals to Length
+	Delay    int
 }
 
 type WindowOperator struct {
@@ -267,8 +268,16 @@ func (o *WindowOperator) execProcessingWindow(ctx api.StreamContext, inputs []*x
 		}
 	}
 
+	delayCh := make(chan int64, 100)
 	for {
 		select {
+		case delayTS := <-delayCh:
+			o.statManager.ProcessTimeStart()
+			inputs = o.scan(inputs, delayTS, ctx)
+			o.statManager.ProcessTimeEnd()
+			o.statManager.SetBufferLength(int64(len(o.input)))
+			ctx.PutState(WINDOW_INPUTS_KEY, inputs)
+			ctx.PutState(MSG_COUNT_KEY, o.msgCount)
 		// process incoming item
 		case item, opened := <-o.input:
 			processed := false
@@ -292,7 +301,17 @@ func (o *WindowOperator) execProcessingWindow(ctx api.StreamContext, inputs []*x
 				case ast.NOT_WINDOW:
 					inputs = o.scan(inputs, d.Timestamp, ctx)
 				case ast.SLIDING_WINDOW:
-					inputs = o.scan(inputs, d.Timestamp, ctx)
+					if o.window.Delay > 0 {
+						go func(ts int64) {
+							after := time.After(time.Duration(o.window.Delay) * time.Millisecond)
+							select {
+							case <-after:
+								delayCh <- ts
+							}
+						}(d.Timestamp + int64(o.window.Delay))
+					} else {
+						inputs = o.scan(inputs, d.Timestamp, ctx)
+					}
 				case ast.SESSION_WINDOW:
 					if timeoutTicker != nil {
 						timeoutTicker.Stop()
@@ -476,12 +495,13 @@ func (o *WindowOperator) scan(inputs []*xsql.Tuple, triggerTime int64, ctx api.S
 		Content: make([]xsql.TupleRow, 0),
 	}
 	i := 0
+	length := o.window.Length + o.window.Delay
 	// Sync table
 	for _, tuple := range inputs {
 		if o.window.Type == ast.HOPPING_WINDOW || o.window.Type == ast.SLIDING_WINDOW {
 			diff := triggerTime - tuple.Timestamp
-			if diff > int64(o.window.Length)+delta {
-				log.Debugf("diff: %d, length: %d, delta: %d", diff, o.window.Length, delta)
+			if diff > int64(length)+delta {
+				log.Debugf("diff: %d, length: %d, delta: %d", diff, length, delta)
 				log.Debugf("tuple %s emitted at %d expired", tuple, tuple.Timestamp)
 				// Expired tuple, remove it by not adding back to inputs
 				continue
@@ -505,10 +525,10 @@ func (o *WindowOperator) scan(inputs []*xsql.Tuple, triggerTime int64, ctx api.S
 	case ast.HOPPING_WINDOW:
 		windowStart = o.triggerTime - int64(o.window.Interval)
 	case ast.SLIDING_WINDOW:
-		windowStart = triggerTime - int64(o.window.Length)
+		windowStart = triggerTime - int64(length)
 	}
 	if windowStart <= 0 {
-		windowStart = windowEnd - int64(o.window.Length)
+		windowStart = windowEnd - int64(length)
 	}
 	results.WindowRange = xsql.NewWindowRange(windowStart, windowEnd)
 	log.Debugf("window %s triggered for %d tuples", o.name, len(inputs))

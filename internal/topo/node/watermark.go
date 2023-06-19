@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/lf-edge/ekuiper/internal/xsql"
 	"github.com/lf-edge/ekuiper/pkg/api"
@@ -86,14 +87,25 @@ func (w *WatermarkGenerator) track(s string, ts int64, ctx api.StreamContext) bo
 	}
 	r := ts >= w.lastWatermarkTs
 	if r {
-		w.trigger(ctx)
+		if w.window.Delay > 0 {
+			go func() {
+				after := time.After(time.Duration(w.window.Delay) * time.Millisecond)
+				select {
+				case <-after:
+					w.trigger(ctx)
+				}
+			}()
+		} else {
+			w.trigger(ctx)
+		}
+
 	}
 	return r
 }
 
 func (w *WatermarkGenerator) trigger(ctx api.StreamContext) {
 	log := ctx.GetLogger()
-	watermark := w.computeWatermarkTs(ctx)
+	watermark := w.computeWatermarkTs(ctx) + int64(w.window.Delay)
 	log.Debugf("compute watermark event at %d with last %d", watermark, w.lastWatermarkTs)
 	if watermark > w.lastWatermarkTs {
 		t := &WatermarkTuple{Timestamp: watermark}

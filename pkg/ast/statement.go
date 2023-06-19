@@ -175,6 +175,7 @@ type Window struct {
 	WindowType WindowType
 	Length     *IntegerLiteral
 	Interval   *IntegerLiteral
+	Delay      *IntegerLiteral
 	Filter     Expr
 	Expr
 }

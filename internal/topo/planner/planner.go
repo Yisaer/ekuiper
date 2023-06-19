@@ -141,6 +141,7 @@ func buildOps(lp LogicalPlan, tp *topo.Topo, options *api.RuleOption, sources []
 			Type:     t.wtype,
 			Length:   t.length,
 			Interval: t.interval,
+			Delay:    t.delay,
 		}, streamsFromStmt, options)
 		if err != nil {
 			return nil, 0, err
@@ -295,6 +296,7 @@ func createLogicalPlan(stmt *ast.SelectStatement, opt *api.RuleOption, store kv.
 			wp := WindowPlan{
 				wtype:       w.WindowType,
 				length:      w.Length.Val,
+				delay:       w.Delay.Val,
 				isEventTime: opt.IsEventTime,
 			}.Init()
 			if w.Interval != nil {

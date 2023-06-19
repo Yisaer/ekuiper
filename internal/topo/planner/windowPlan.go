@@ -20,6 +20,7 @@ type WindowPlan struct {
 	baseLogicalPlan
 	condition   ast.Expr
 	wtype       ast.WindowType
+	delay       int
 	length      int
 	interval    int // If interval is not set, it is equals to Length
 	limit       int // If limit is not positive, there will be no limit
