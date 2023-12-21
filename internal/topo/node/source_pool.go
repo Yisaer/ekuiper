@@ -25,7 +25,9 @@ import (
 	kctx "github.com/lf-edge/ekuiper/internal/topo/context"
 	"github.com/lf-edge/ekuiper/internal/topo/state"
 	"github.com/lf-edge/ekuiper/pkg/api"
+	"github.com/lf-edge/ekuiper/pkg/ast"
 	"github.com/lf-edge/ekuiper/pkg/infra"
+	"github.com/lf-edge/ekuiper/pkg/message"
 )
 
 //// Package vars and funcs
@@ -61,6 +63,7 @@ func getSourceInstance(node *SourceNode, index int) (*sourceInstance, error) {
 		if err != nil {
 			return nil, err
 		}
+		s.attachSchema(node.ctx.GetRuleId(), node.options.Schema)
 		si = &sourceInstance{
 			source:                 s.source,
 			ctx:                    s.ctx,
@@ -181,6 +184,7 @@ func (p *sourcePool) deleteInstance(k string, node *SourceNode, index int) {
 	defer p.Unlock()
 	s, ok := p.registry[k]
 	if ok {
+
 		instanceKey := fmt.Sprintf("%s.%s.%d", k, node.ctx.GetRuleId(), index)
 		end := s.detach(instanceKey)
 		if end {
@@ -272,6 +276,20 @@ func (ss *sourceSingleton) broadcastError(err error) {
 	wg.Wait()
 }
 
+func (ss *sourceSingleton) attachSchema(ruleID string, schema map[string]*ast.JsonStreamField) {
+	ss.Lock()
+	defer ss.Unlock()
+	decodeConverter := ss.ctx.Value(kctx.DecodeKey)
+	if decodeConverter != nil {
+		fastDecoder, ok := decodeConverter.(message.SchemaMergeAbleConverter)
+		if ok {
+			if err := fastDecoder.MergeSchema(ruleID, schema); err != nil {
+				conf.Log.Warnf("merge schema for shared stream rule %v failed, err:%v", ruleID, err)
+			}
+		}
+	}
+}
+
 func (ss *sourceSingleton) attach(instanceKey string, bl int) error {
 	retry := 10
 	var err error
@@ -294,6 +312,20 @@ func (ss *sourceSingleton) attach(instanceKey string, bl int) error {
 		time.Sleep(time.Millisecond * 100)
 	}
 	return err
+}
+
+func (ss *sourceSingleton) detachSchema(ruleID string) {
+	ss.Lock()
+	defer ss.Unlock()
+	decodeConverter := ss.ctx.Value(kctx.DecodeKey)
+	if decodeConverter != nil {
+		fastDecoder, ok := decodeConverter.(message.SchemaMergeAbleConverter)
+		if ok {
+			if err := fastDecoder.DetachSchema(ruleID); err != nil {
+				conf.Log.Warnf("detach schema for rule %v failed, err:%v", ruleID, err.Error())
+			}
+		}
+	}
 }
 
 // detach Detach an instance and return if the singleton is ended
