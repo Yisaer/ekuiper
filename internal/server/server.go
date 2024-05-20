@@ -359,7 +359,7 @@ func runScheduleRuleCheckerByInterval(d time.Duration, exit <-chan struct{}) {
 }
 
 func runScheduleRuleChecker(exit <-chan struct{}) {
-	d, err := time.ParseDuration(conf.Config.Basic.RulePatrolInterval)
+	d, err := cast.ConvertDuration(conf.Config.Basic.RulePatrolInterval)
 	if err != nil {
 		conf.Log.Errorf("parse rulePatrolInterval failed, err:%v", err)
 		return

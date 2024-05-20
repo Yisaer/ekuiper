@@ -62,7 +62,7 @@ type SinkConf struct {
 	MaxDiskCache         int    `json:"maxDiskCache" yaml:"maxDiskCache"`
 	BufferPageSize       int    `json:"bufferPageSize" yaml:"bufferPageSize"`
 	EnableCache          bool   `json:"enableCache" yaml:"enableCache"`
-	ResendInterval       string `json:"resendInterval" yaml:"resendInterval"`
+	ResendInterval       any    `json:"resendInterval" yaml:"resendInterval"`
 	CleanCacheAtStop     bool   `json:"cleanCacheAtStop" yaml:"cleanCacheAtStop"`
 	ResendAlterQueue     bool   `json:"resendAlterQueue" yaml:"resendAlterQueue"`
 	ResendPriority       int    `json:"resendPriority" yaml:"resendPriority"`
@@ -194,7 +194,7 @@ type KuiperConf struct {
 		Authentication      bool        `yaml:"authentication"`
 		IgnoreCase          bool        `yaml:"ignoreCase"`
 		SQLConf             *SQLConf    `yaml:"sql"`
-		RulePatrolInterval  string      `yaml:"rulePatrolInterval"`
+		RulePatrolInterval  any         `yaml:"rulePatrolInterval"`
 		CfgStorageType      string      `yaml:"cfgStorageType"`
 		EnableOpenZiti      bool        `yaml:"enableOpenZiti"`
 		AesKey              string      `yaml:"aesKey"`
@@ -330,8 +330,19 @@ func InitConf() {
 		Config.Basic.RestIp = "0.0.0.0"
 	}
 
-	if len(Config.Basic.RulePatrolInterval) < 1 {
-		Config.Basic.RulePatrolInterval = "10s"
+	switch x := (Config.Basic.RulePatrolInterval).(type) {
+	case string:
+		if len(x) < 1 {
+			Config.Basic.RulePatrolInterval = "10s"
+		}
+	case int:
+		if x < 1 {
+			Config.Basic.RulePatrolInterval = "10s"
+		}
+	case int64:
+		if x < 1 {
+			Config.Basic.RulePatrolInterval = "10s"
+		}
 	}
 
 	if Config.Basic.LogLevel == "" {
