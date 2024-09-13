@@ -16,7 +16,7 @@ openTelemetry:
 
 ## Enable rule-level tracing
 
-You can turn on data link tracing for the corresponding rule by setting `enableRuleTracer` in the rule `options` to true. For specific settings, please see [Rules](../../guide/rules/overview.md#rules)
+You can turn on or off [rule-level tracing](../../api/restapi/trace.md#enable-data-tracing-for-specific-rules) for specific rules by setting the REST API
 
 ## Get the Trace ID of each piece of data
 

@@ -2,6 +2,18 @@
 
 eKuiper 支持通过 API 查看规则最近的追踪数据。
 
+## 为特定规则启用数据链路追踪
+
+```shell
+POST http://localhost:9081/rules/{ruleID}/trace/start
+```
+
+## 为特定规则关闭数据链路追踪
+
+```shell
+POST http://localhost:9081/rules/{ruleID}/trace/stop
+```
+
 ## 根据规则 ID 查看最近的 Trace ID
 
 ```shell

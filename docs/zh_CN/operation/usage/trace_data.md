@@ -16,7 +16,7 @@ openTelemetry:
 
 ## 开启规则级别的追踪
 
-你可以通过设置规则 `options` 中的 `enableRuleTracer` 为 true，为对应规则打开数据链路追踪。具体设置请查看 [规则](../../guide/rules/overview.md#选项)
+你可以通过设置 REST API 为特定规则打开或者关闭[规则级别的追踪](../../api/restapi/trace.md#为特定规则启用数据链路追踪)
 
 ## 获取每条数据的 Trace ID
 

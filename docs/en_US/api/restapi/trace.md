@@ -2,6 +2,18 @@
 
 eKuiper supports viewing recent tracing data of rules through API.
 
+## Enable data tracing for specific rules
+
+```shell
+POST http://localhost:9081/rules/{ruleID}/trace/start
+```
+
+## Turn off data tracing for specific rules
+
+```shell
+POST http://localhost:9081/rules/{ruleID}/trace/stop
+```
+
 ## View the latest Trace ID based on the rule ID
 
 ```shell
