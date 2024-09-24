@@ -179,7 +179,7 @@ func GetAllConnectionStatus(ctx api.StreamContext) map[string]modules.Connection
 		case modules.StatefulDialer:
 			s[id] = mm.Status(ctx)
 		default:
-			if meta.cw.IsInitialized() {
+			if ok, _ := meta.cw.IsInitialized(); ok {
 				conn, err := meta.cw.Wait()
 				if err != nil {
 					s[id] = modules.ConnectionStatus{
@@ -241,6 +241,10 @@ func PingConnection(ctx api.StreamContext, id string) error {
 	meta, ok := globalConnectionManager.connectionPool[id]
 	if !ok {
 		return fmt.Errorf("connection %s not existed", id)
+	}
+	initialized, connErr := meta.cw.IsInitialized()
+	if !initialized {
+		return fmt.Errorf("connection %s not initialized, connectErr:%v", id, connErr)
 	}
 	conn, err := meta.cw.Wait()
 	if err != nil {
@@ -348,48 +352,21 @@ func createConnection(ctx api.StreamContext, meta *Meta) (modules.Connection, er
 	var err error
 	connRegister, ok := modules.ConnectionRegister[strings.ToLower(meta.Typ)]
 	if !ok {
-		return nil, fmt.Errorf("unknown connection type")
+		return nil, backoff.Permanent(fmt.Errorf("unknown connection type:%s", meta.Typ))
 	}
 	conn = connRegister(ctx)
-	sc, isStateful := conn.(modules.StatefulDialer)
 	err = conn.Provision(ctx, meta.ID, meta.Props)
 	if err != nil {
+		return nil, backoff.Permanent(err)
+	}
+	err = conn.Dial(ctx)
+	if err == nil {
+		return conn, nil
+	}
+	if errorx.IsIOError(err) {
 		return nil, err
 	}
-	if isStateful {
-		sc.SetStatusChangeHandler(ctx, meta.NotifyStatus)
-	}
-	err = backoff.Retry(func() error {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-		if !isStateful {
-			meta.NotifyStatus(api.ConnectionConnecting, "")
-		}
-		err = conn.Dial(ctx)
-		failpoint.Inject("createConnectionErr", func() {
-			if mockErr {
-				err = errorx.NewIOErr("createConnectionErr")
-				mockErr = false
-			}
-		})
-		if err == nil {
-			if !isStateful {
-				meta.NotifyStatus(api.ConnectionConnected, "")
-			}
-			return nil
-		}
-		if !isStateful {
-			meta.NotifyStatus(api.ConnectionDisconnected, err.Error())
-		}
-		if errorx.IsIOError(err) {
-			return err
-		}
-		return backoff.Permanent(err)
-	}, NewExponentialBackOff())
-	return conn, err
+	return nil, backoff.Permanent(err)
 }
 
 // Return the unique connection id and whether it is set explicitly

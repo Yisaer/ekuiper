@@ -18,6 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/lf-edge/ekuiper/contract/v2/api"
 
 	"github.com/lf-edge/ekuiper/v2/pkg/modules"
@@ -29,6 +30,12 @@ type ConnWrapper struct {
 	conn        modules.Connection
 	err         error
 	cond        *sync.Cond
+}
+
+func (cw *ConnWrapper) StoreConnectErr(err error) {
+	cw.cond.L.Lock()
+	defer cw.cond.L.Unlock()
+	cw.err = err
 }
 
 func (cw *ConnWrapper) SetConn(conn modules.Connection, err error) {
@@ -47,10 +54,10 @@ func (cw *ConnWrapper) Wait() (modules.Connection, error) {
 	return cw.conn, cw.err
 }
 
-func (cw *ConnWrapper) IsInitialized() bool {
+func (cw *ConnWrapper) IsInitialized() (bool, error) {
 	cw.cond.L.Lock()
 	defer cw.cond.L.Unlock()
-	return cw.initialized
+	return cw.initialized, cw.err
 }
 
 func newConnWrapper(ctx api.StreamContext, meta *Meta) *ConnWrapper {
@@ -59,7 +66,18 @@ func newConnWrapper(ctx api.StreamContext, meta *Meta) *ConnWrapper {
 		cond: sync.NewCond(&sync.Mutex{}),
 	}
 	go func() {
-		conn, err := createConnection(ctx, meta)
+		var conn modules.Connection
+		var connErr error
+		err := backoff.Retry(func() error {
+			conn, connErr = createConnection(ctx, meta)
+			if connErr != nil {
+				_, ok := connErr.(*backoff.PermanentError)
+				if !ok {
+					cw.StoreConnectErr(connErr)
+				}
+			}
+			return connErr
+		}, NewExponentialBackOff())
 		cw.SetConn(conn, err)
 		cw.cond.Broadcast()
 	}()
