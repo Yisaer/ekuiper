@@ -619,6 +619,7 @@ func registerMiscFunc() {
 
 			value, err := keyedstate.GetKeyedState(key)
 			if err != nil {
+				ctx.GetLogger().Infof("%v get_keyed_state %v failed, err:%v", ctx.GetRuleId(), key, err)
 				return args[2], true
 			}
 
@@ -639,7 +640,6 @@ func registerMiscFunc() {
 			}
 			return nil
 		},
-		check: returnNilIfHasAnyNil,
 	}
 	builtins["hex2dec"] = builtinFunc{
 		fType: ast.FuncTypeScalar,
