@@ -221,11 +221,10 @@ func handleAllRuleStatusMetrics(rs []ruleWrapper) {
 
 func handleAllScheduleRuleState(now time.Time, rs []ruleWrapper) {
 	for _, r := range rs {
-		if !r.rule.IsScheduleRule() {
-			continue
-		}
-		if err := handleScheduleRuleState(now, r); err != nil {
-			conf.Log.Errorf("handle schedule rule %v state failed, err:%v", r.rule.Id, err)
+		if r.rule.IsScheduleRule() || r.rule.IsDurationRule() {
+			if err := handleScheduleRuleState(now, r); err != nil {
+				conf.Log.Errorf("handle schedule rule %v state failed, err:%v", r.rule.Id, err)
+			}
 		}
 	}
 }
