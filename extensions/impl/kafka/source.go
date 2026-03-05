@@ -48,12 +48,13 @@ type KafkaSource struct {
 }
 
 type kafkaSourceConf struct {
-	Topic       string `json:"datasource"`
-	Brokers     string `json:"brokers"`
-	GroupID     string `json:"groupID"`
-	Partition   int    `json:"partition"`
-	MaxAttempts int    `json:"maxAttempts"`
-	MaxBytes    int    `json:"maxBytes"`
+	Topic        string `json:"datasource"`
+	Brokers      string `json:"brokers"`
+	GroupID      string `json:"groupID"`
+	Partition    int    `json:"partition"`
+	MaxAttempts  int    `json:"maxAttempts"`
+	MaxBytes     int    `json:"maxBytes"`
+	OffsetAction string `json:"offsetAction"`
 }
 
 func (c *kafkaSourceConf) validate() error {
@@ -168,6 +169,16 @@ func (k *KafkaSource) Close(ctx api.StreamContext) error {
 	return k.reader.Close()
 }
 
+func (k *KafkaSource) DefaultOffsetAction() int64 {
+	switch k.sc.OffsetAction {
+	case "first":
+		return kafkago.FirstOffset
+	case "last":
+		return kafkago.LastOffset
+	}
+	return kafkago.FirstOffset
+}
+
 func (k *KafkaSource) Connect(ctx api.StreamContext, sch api.StatusChangeHandler) error {
 	readerConfig := k.sc.GetReaderConfig()
 	conf.Log.Infof("topic: %s, brokers: %v", readerConfig.Topic, readerConfig.Brokers)
@@ -180,7 +191,7 @@ func (k *KafkaSource) Connect(ctx api.StreamContext, sch api.StatusChangeHandler
 	reader := kafkago.NewReader(*readerConfig)
 	k.reader = reader
 	if len(k.sc.GroupID) < 1 {
-		err := k.reader.SetOffset(kafkago.LastOffset)
+		err := k.reader.SetOffset(k.DefaultOffsetAction())
 		if err != nil {
 			k.connected = false
 			sch(api.ConnectionDisconnected, err.Error())
