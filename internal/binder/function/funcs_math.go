@@ -610,7 +610,7 @@ func radians(degrees float64) float64 {
 }
 
 func degrees(radians float64) float64 {
-	return radians * (RadToDeg)
+	return radians * RadToDeg
 }
 
 func conv(str string, fromBase, toBase int64) (res string, isNull bool, err error) {
