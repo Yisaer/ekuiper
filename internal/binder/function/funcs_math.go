@@ -606,7 +606,7 @@ func registerMathFunc() {
 }
 
 func radians(degrees float64) float64 {
-	return degrees * (DegToRad)
+	return degrees * DegToRad
 }
 
 func degrees(radians float64) float64 {
