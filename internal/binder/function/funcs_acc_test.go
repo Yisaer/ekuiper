@@ -304,7 +304,7 @@ func TestAccMapAgg(t *testing.T) {
 	result, ok := f.exec(fctx, args(18, map[string]interface{}{"max_temp": int64(28)}))
 	require.True(t, ok)
 	require.Equal(t, []map[string]interface{}{{"key": "18", "value": map[string]interface{}{"max_temp": int64(28)}}}, result)
-	result, ok = f.exec(fctx, args(19, map[string]interface{}{"max_temp": int64(31)}))
+	_, ok = f.exec(fctx, args(19, map[string]interface{}{"max_temp": int64(31)}))
 	require.True(t, ok)
 	result, ok = f.exec(fctx, args(18, map[string]interface{}{"max_temp": int64(30)}))
 	require.True(t, ok)
