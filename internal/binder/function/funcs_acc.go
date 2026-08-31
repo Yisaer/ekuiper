@@ -21,6 +21,7 @@ import (
 	"github.com/lf-edge/ekuiper/contract/v2/api"
 
 	"github.com/lf-edge/ekuiper/v2/pkg/ast"
+	"github.com/lf-edge/ekuiper/v2/pkg/cast"
 )
 
 func registerGlobalAggFunc() {
@@ -141,6 +142,207 @@ func registerGlobalAggFunc() {
 			return nil
 		},
 	}
+	builtins["acc_max_by"] = builtinFunc{
+		fType: ast.FuncTypeScalar,
+		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
+			status, err := handleAccMaxBy(ctx, args)
+			if err != nil {
+				return err, false
+			}
+			if status.Value == nil {
+				return nil, true
+			}
+			return status.Value.(*accMaxByStatus).Value, true
+		},
+		val: func(_ api.FunctionContext, args []ast.Expr) error {
+			if len(args) != 2 && len(args) != 4 {
+				return fmt.Errorf("Expect 2/4 arguments but found %d.", len(args))
+			}
+			return nil
+		},
+	}
+	builtins["acc_map_agg"] = builtinFunc{
+		fType: ast.FuncTypeScalar,
+		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
+			status, err := handleAccMapAgg(ctx, args)
+			if err != nil {
+				return err, false
+			}
+			if status.Value == nil {
+				return []map[string]interface{}{}, true
+			}
+			return status.Value.(*accMapAggStatus).result(), true
+		},
+		val: func(_ api.FunctionContext, args []ast.Expr) error {
+			if len(args) != 2 && len(args) != 4 {
+				return fmt.Errorf("Expect 2/4 arguments but found %d.", len(args))
+			}
+			return nil
+		},
+	}
+}
+
+// accMaxByStatus keeps the value x associated with the greatest y seen so far.
+type accMaxByStatus struct {
+	Value interface{}
+	By    float64
+}
+
+func handleAccMaxBy(ctx api.FunctionContext, args []interface{}) (*accStatus, error) {
+	if len(args) != 4 && len(args) != 6 {
+		return nil, fmt.Errorf("wrong args length for acc_max_by: %d", len(args))
+	}
+	valid, key, status, err := extractAccArgs(ctx, args, accMaxByAccumulator{})
+	if err != nil {
+		return nil, err
+	}
+	if len(args) == 6 {
+		begin, ok1 := args[3].(bool)
+		reset, ok2 := args[4].(bool)
+		if !ok1 || !ok2 {
+			return nil, fmt.Errorf("acc_max_by conditions should be boolean")
+		}
+		accMaxByWithCond(ctx, args[0], args[1], begin, reset, valid, key, status)
+	} else {
+		accMaxByExec(ctx, args[0], args[1], valid, key, status, false)
+	}
+	if status.Err != nil {
+		return nil, status.Err
+	}
+	return status, nil
+}
+
+type accMaxByAccumulator struct{}
+
+func (accMaxByAccumulator) accReset(status *accStatus) { status.Value = nil }
+func (accMaxByAccumulator) accFuncExec(ctx api.FunctionContext, value interface{}, valid bool, key string, status *accStatus, skip bool) {
+	// This method is not used; acc_max_by has two input expressions.
+}
+
+func accMaxByExec(ctx api.FunctionContext, value, by interface{}, valid bool, key string, status *accStatus, skip bool) {
+	if !valid || by == nil {
+		return
+	}
+	b, err := cast.ToFloat64(by, cast.CONVERT_SAMEKIND)
+	if err != nil {
+		status.Err = fmt.Errorf("acc_max_by y should be number: %w", err)
+		return
+	}
+	current, ok := status.Value.(*accMaxByStatus)
+	if !ok || b >= current.By {
+		status.Value = &accMaxByStatus{Value: value, By: b}
+	}
+	if !skip {
+		if err := ctx.PutState(key, status); err != nil {
+			status.Err = err
+		}
+	}
+}
+
+func accMaxByWithCond(ctx api.FunctionContext, value, by interface{}, begin, reset, valid bool, key string, status *accStatus) {
+	if !status.HasBegin {
+		status.Value = nil
+	}
+	if begin && !status.HasBegin {
+		status.HasBegin = true
+	}
+	if status.HasBegin {
+		accMaxByExec(ctx, value, by, valid, key, status, true)
+	}
+	if reset {
+		status.HasBegin = false
+	}
+	if status.Err == nil {
+		if err := ctx.PutState(key, status); err != nil {
+			status.Err = err
+		}
+	}
+}
+
+type accMapEntry struct {
+	Key   string
+	Value interface{}
+}
+type accMapAggStatus struct{ Entries []accMapEntry }
+
+func (s *accMapAggStatus) result() []map[string]interface{} {
+	r := make([]map[string]interface{}, 0, len(s.Entries))
+	for _, e := range s.Entries {
+		r = append(r, map[string]interface{}{kvPairKName: e.Key, kvPairVName: e.Value})
+	}
+	return r
+}
+
+func handleAccMapAgg(ctx api.FunctionContext, args []interface{}) (*accStatus, error) {
+	if len(args) != 4 && len(args) != 6 {
+		return nil, fmt.Errorf("wrong args length for acc_map_agg: %d", len(args))
+	}
+	key, ok := args[len(args)-1].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid state key")
+	}
+	valid, ok := args[len(args)-2].(bool)
+	if !ok {
+		return nil, fmt.Errorf("valid data should be boolean")
+	}
+	v, err := ctx.GetState(key)
+	if err != nil {
+		return nil, err
+	}
+	status := &accStatus{}
+	if v != nil {
+		status = v.(*accStatus)
+	}
+	if status.Value == nil {
+		status.Value = &accMapAggStatus{}
+	}
+	if len(args) == 6 {
+		begin, ok1 := args[3].(bool)
+		reset, ok2 := args[4].(bool)
+		if !ok1 || !ok2 {
+			return nil, fmt.Errorf("acc_map_agg conditions should be boolean")
+		}
+		if !status.HasBegin {
+			status.Value = &accMapAggStatus{}
+		}
+		if begin && !status.HasBegin {
+			status.HasBegin = true
+		}
+		if status.HasBegin {
+			accMapAggExec(ctx, args[0], args[1], valid, key, status)
+		}
+		if reset {
+			status.HasBegin = false
+		}
+	} else {
+		accMapAggExec(ctx, args[0], args[1], valid, key, status)
+	}
+	if status.Err != nil {
+		return nil, status.Err
+	}
+	if err := ctx.PutState(key, status); err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+func accMapAggExec(ctx api.FunctionContext, k, value interface{}, valid bool, stateKey string, status *accStatus) {
+	if !valid || k == nil {
+		return
+	}
+	ks, err := cast.ToString(k, cast.CONVERT_ALL)
+	if err != nil {
+		status.Err = fmt.Errorf("acc_map_agg key should be string-convertible: %w", err)
+		return
+	}
+	s := status.Value.(*accMapAggStatus)
+	for i := range s.Entries {
+		if s.Entries[i].Key == ks {
+			s.Entries[i].Value = value
+			return
+		}
+	}
+	s.Entries = append(s.Entries, accMapEntry{Key: ks, Value: value})
 }
 
 func handleAccFunc(ctx api.FunctionContext, args []interface{}, accFunc accFunc) (*accStatus, error) {

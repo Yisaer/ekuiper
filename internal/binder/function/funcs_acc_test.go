@@ -272,6 +272,48 @@ func TestAccumulateAgg(t *testing.T) {
 	}
 }
 
+func TestAccMaxBy(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMaxBy")
+	tctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_max_by_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(tctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_max_by"]
+
+	args := func(value, by int64) []interface{} { return []interface{}{value, by, true, "max_by"} }
+	result, ok := f.exec(fctx, args(100, 10))
+	require.True(t, ok)
+	require.Equal(t, int64(100), result)
+	result, ok = f.exec(fctx, args(200, 9))
+	require.True(t, ok)
+	require.Equal(t, int64(100), result)
+	result, ok = f.exec(fctx, args(300, 10))
+	require.True(t, ok)
+	require.Equal(t, int64(300), result)
+}
+
+func TestAccMapAgg(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMapAgg")
+	tctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_map_agg_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(tctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_map_agg"]
+
+	args := func(key int64, value interface{}) []interface{} {
+		return []interface{}{key, value, true, "map_agg"}
+	}
+	result, ok := f.exec(fctx, args(18, map[string]interface{}{"max_temp": int64(28)}))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"key": "18", "value": map[string]interface{}{"max_temp": int64(28)}}}, result)
+	result, ok = f.exec(fctx, args(19, map[string]interface{}{"max_temp": int64(31)}))
+	require.True(t, ok)
+	result, ok = f.exec(fctx, args(18, map[string]interface{}{"max_temp": int64(30)}))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{
+		{"key": "18", "value": map[string]interface{}{"max_temp": int64(30)}},
+		{"key": "19", "value": map[string]interface{}{"max_temp": int64(31)}},
+	}, result)
+}
+
 func TestAccCollectFuncDirect(t *testing.T) {
 	contextLogger := conf.Log.WithField("rule", "testExec")
 	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
