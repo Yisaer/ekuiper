@@ -300,7 +300,6 @@ func splitSink(tp *topo.Topo, s api.Sink, sinkName string, options *def.RuleOpti
 			if err != nil {
 				return nil, err
 			}
-			index++
 			result = append(result, encryptOp)
 		}
 	}
@@ -310,7 +309,6 @@ func splitSink(tp *topo.Topo, s api.Sink, sinkName string, options *def.RuleOpti
 		if err != nil {
 			return nil, err
 		}
-		index++
 		result = append(result, cacheOp)
 	}
 	return result, nil

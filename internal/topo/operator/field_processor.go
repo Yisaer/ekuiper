@@ -87,7 +87,7 @@ func (p *defaultFieldProcessor) validateAndConvertField(sf *ast.JsonStreamField,
 	v := reflect.ValueOf(t)
 	jtype := v.Kind()
 	switch sf.Type {
-	case (ast.BIGINT).String():
+	case ast.BIGINT.String():
 		if jtype == reflect.Int64 {
 			return t, nil
 		}
