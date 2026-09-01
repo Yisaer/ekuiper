@@ -193,6 +193,43 @@ func registerObjectFunc() {
 			return nil
 		},
 	}
+	builtins["map_agg_to_array"] = builtinFunc{
+		fType: ast.FuncTypeScalar,
+		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
+			if args[0] == nil {
+				return []map[string]interface{}{}, true
+			}
+			keyName, ok := args[1].(string)
+			if !ok {
+				return fmt.Errorf("the second argument should be string"), false
+			}
+			rename := map[string]string{}
+			if len(args) == 3 && args[2] != nil {
+				renameMap, ok := args[2].(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("the third argument should be map[string]interface{}"), false
+				}
+				for source, target := range renameMap {
+					targetName, ok := target.(string)
+					if !ok {
+						return fmt.Errorf("rename target for %s should be string", source), false
+					}
+					rename[source] = targetName
+				}
+			}
+			result, err := mapAggToArray(args[0], keyName, rename)
+			if err != nil {
+				return err, false
+			}
+			return result, true
+		},
+		val: func(_ api.FunctionContext, args []ast.Expr) error {
+			if len(args) != 2 && len(args) != 3 {
+				return fmt.Errorf("Expect 2/3 arguments but found %d.", len(args))
+			}
+			return nil
+		},
+	}
 	builtins["erase"] = builtinFunc{
 		fType: ast.FuncTypeScalar,
 		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
@@ -314,6 +351,52 @@ func registerObjectFunc() {
 		val:   ValidateOneArg,
 		check: returnNilIfHasAnyNil,
 	}
+}
+
+func mapAggToArray(input interface{}, keyName string, rename map[string]string) ([]map[string]interface{}, error) {
+	var entries []interface{}
+	switch v := input.(type) {
+	case []interface{}:
+		entries = v
+	case []map[string]interface{}:
+		entries = make([]interface{}, len(v))
+		for i := range v {
+			entries[i] = v[i]
+		}
+	default:
+		return nil, fmt.Errorf("the first argument should be an array")
+	}
+	result := make([]map[string]interface{}, 0, len(entries))
+	for _, entry := range entries {
+		item, ok := entry.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("each array item should be an object")
+		}
+		key, ok := item["key"]
+		if !ok {
+			return nil, fmt.Errorf("each array item should contain key")
+		}
+		keyValue := key
+		if keyString, ok := key.(string); ok {
+			if numericKey, err := cast.ToInt64(keyString, cast.CONVERT_ALL); err == nil {
+				keyValue = numericKey
+			}
+		}
+		value, ok := item["value"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("each array item value should be an object")
+		}
+		converted := map[string]interface{}{keyName: keyValue}
+		for source, fieldValue := range value {
+			target := source
+			if renamed, ok := rename[source]; ok {
+				target = renamed
+			}
+			converted[target] = fieldValue
+		}
+		result = append(result, converted)
+	}
+	return result, nil
 }
 
 func pick(ctx api.FunctionContext, res map[string]any, argMap map[string]any, k string) {

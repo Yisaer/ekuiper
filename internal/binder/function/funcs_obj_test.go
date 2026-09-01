@@ -823,3 +823,34 @@ func TestVal(t *testing.T) {
 		})
 	}
 }
+
+func TestMapAggToArray(t *testing.T) {
+	f, ok := builtins["map_agg_to_array"]
+	require.True(t, ok)
+	input := []map[string]interface{}{
+		{"key": "18", "value": map[string]interface{}{"max_temp": 30, "max_temp_ts": int64(1788000060000)}},
+		{"key": "car-a", "value": map[string]interface{}{"max_temp": 31}},
+	}
+	result, ok := f.exec(nil, []interface{}{input, "soc", map[string]interface{}{"max_temp_ts": "ts"}})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{
+		{"soc": int64(18), "max_temp": 30, "ts": int64(1788000060000)},
+		{"soc": "car-a", "max_temp": 31},
+	}, result)
+
+	result, ok = f.exec(nil, []interface{}{nil, "soc"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{}, result)
+	result, ok = f.exec(nil, []interface{}{[]interface{}{input[0]}, "soc"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"soc": int64(18), "max_temp": 30, "max_temp_ts": int64(1788000060000)}}, result)
+
+	result, ok = f.exec(nil, []interface{}{input, 1})
+	require.False(t, ok)
+	_, isErr := result.(error)
+	require.True(t, isErr)
+	result, ok = f.exec(nil, []interface{}{[]interface{}{map[string]interface{}{"key": "18"}}, "soc"})
+	require.False(t, ok)
+	_, isErr = result.(error)
+	require.True(t, isErr)
+}

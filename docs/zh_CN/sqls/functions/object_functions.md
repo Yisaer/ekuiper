@@ -105,6 +105,26 @@ object_construct(key1, col, ...)
 object_construct("a", 1, "b", 2)
 ```
 
+## MAP_AGG_TO_ARRAY
+
+```text
+map_agg_to_array(data, key_name [, rename_map])
+```
+
+将 `acc_map_agg` 返回的 `key`/`value` 对象数组转换为对象数组。`key` 会写入 `key_name` 指定的字段；`rename_map` 用于重命名 value 对象中的字段，格式为“原字段名到新字段名”。可转换为整数的 key 字符串会输出为整数。
+
+例如：
+
+```text
+map_agg_to_array(
+    data,
+    "soc",
+    object_construct("max_temp_ts", "ts")
+)
+```
+
+将 `{"key":"18","value":{"max_temp":30,"max_temp_ts":1788000060000}}` 转换为 `{"soc":18,"max_temp":30,"ts":1788000060000}`。
+
 得到如下结果:
 
 ```sql

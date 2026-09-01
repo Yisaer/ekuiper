@@ -121,6 +121,26 @@ example:
 object_construct("a", 1, "b", 2)
 ```
 
+## MAP_AGG_TO_ARRAY
+
+```text
+map_agg_to_array(data, key_name [, rename_map])
+```
+
+Converts the `key`/`value` object array returned by `acc_map_agg` into an array of objects. The key is written to the field specified by `key_name`. `rename_map` renames fields inside each value object and maps source field names to target field names. Key strings that can be converted to integers are output as integers.
+
+For example:
+
+```text
+map_agg_to_array(
+    data,
+    "soc",
+    object_construct("max_temp_ts", "ts")
+)
+```
+
+Converts `{"key":"18","value":{"max_temp":30,"max_temp_ts":1788000060000}}` to `{"soc":18,"max_temp":30,"ts":1788000060000}`.
+
 result:
 
 ```sql
