@@ -197,8 +197,8 @@ func handleAccMaxBy(ctx api.FunctionContext, args []interface{}) (*accStatus, er
 		return nil, err
 	}
 	if len(args) == 6 {
-		begin, ok1 := args[3].(bool)
-		reset, ok2 := args[4].(bool)
+		begin, ok1 := args[2].(bool)
+		reset, ok2 := args[3].(bool)
 		if !ok1 || !ok2 {
 			return nil, fmt.Errorf("acc_max_by conditions should be boolean")
 		}
@@ -297,8 +297,8 @@ func handleAccMapAgg(ctx api.FunctionContext, args []interface{}) (*accStatus, e
 		status.Value = newAccMapAggStatus()
 	}
 	if len(args) == 6 {
-		begin, ok1 := args[3].(bool)
-		reset, ok2 := args[4].(bool)
+		begin, ok1 := args[2].(bool)
+		reset, ok2 := args[3].(bool)
 		if !ok1 || !ok2 {
 			return nil, fmt.Errorf("acc_map_agg conditions should be boolean")
 		}

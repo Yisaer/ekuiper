@@ -314,6 +314,92 @@ func TestAccMapAgg(t *testing.T) {
 	}, result)
 }
 
+func TestAccMaxByEdgeCases(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMaxByEdgeCases")
+	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_max_by_edge_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(ctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_max_by"]
+
+	result, ok := f.exec(fctx, []interface{}{int64(1), nil, true, "nil_by"})
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, []interface{}{int64(1), "invalid", true, "invalid_by"})
+	require.False(t, ok)
+	_, isErr := result.(error)
+	require.True(t, isErr)
+	result, ok = f.exec(fctx, []interface{}{int64(1), int64(1), false, "invalid_data"})
+	require.True(t, ok)
+	require.Nil(t, result)
+
+	// Conditional accumulation starts only after begin and resets after reset.
+	args := func(value, by int64, valid, begin, reset bool) []interface{} {
+		return []interface{}{value, by, begin, reset, valid, "conditional_max_by"}
+	}
+	result, ok = f.exec(fctx, args(1, 10, true, false, false))
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, args(2, 20, true, true, false))
+	require.True(t, ok)
+	require.Equal(t, int64(2), result)
+	result, ok = f.exec(fctx, args(3, 15, true, false, false))
+	require.True(t, ok)
+	require.Equal(t, int64(2), result)
+	result, ok = f.exec(fctx, args(4, 20, true, false, true))
+	require.True(t, ok)
+	require.Equal(t, int64(4), result)
+	result, ok = f.exec(fctx, args(5, 1, true, false, false))
+	require.True(t, ok)
+	require.Nil(t, result)
+}
+
+func TestAccMapAggEdgeCases(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMapAggEdgeCases")
+	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_map_agg_edge_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(ctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_map_agg"]
+
+	result, ok := f.exec(fctx, []interface{}{nil, "ignored", true, "nil_key"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{}, result)
+	result, ok = f.exec(fctx, []interface{}{true, "bool-key", true, "converted_key"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"key": "true", "value": "bool-key"}}, result)
+	result, ok = f.exec(fctx, []interface{}{"a", 1, false, "invalid_data_map"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{}, result)
+
+	// Rebuild the index when loading a state created without the side index.
+	err := fctx.PutState("rehydrate_map", &accStatus{Value: &accMapAggStatus{
+		Entries: []accMapEntry{{Key: "a", Value: 1}},
+	}})
+	require.NoError(t, err)
+	result, ok = f.exec(fctx, []interface{}{"a", 2, true, "rehydrate_map"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"key": "a", "value": 2}}, result)
+
+	// Conditional accumulation starts only after begin and resets after reset.
+	args := func(key string, value int64, valid, begin, reset bool) []interface{} {
+		return []interface{}{key, value, begin, reset, valid, "conditional_map_agg"}
+	}
+	result, ok = f.exec(fctx, args("a", 1, true, false, false))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{}, result)
+	result, ok = f.exec(fctx, args("a", 2, true, true, false))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"key": "a", "value": int64(2)}}, result)
+	result, ok = f.exec(fctx, args("b", 3, true, false, true))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{
+		{"key": "a", "value": int64(2)},
+		{"key": "b", "value": int64(3)},
+	}, result)
+	result, ok = f.exec(fctx, args("c", 4, true, false, false))
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{}, result)
+}
+
 func TestAccCollectFuncDirect(t *testing.T) {
 	contextLogger := conf.Log.WithField("rule", "testExec")
 	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
