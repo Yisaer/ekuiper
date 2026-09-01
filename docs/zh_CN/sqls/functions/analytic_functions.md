@@ -403,7 +403,7 @@ acc_collect(a)
 acc_max_by(value, compare_value)
 ```
 
-`acc_max_by` 累计比较 `compare_value`，返回其最大值对应的 `value`。当 `compare_value` 相等时，使用最新一条数据对应的 `value`。
+`acc_max_by` 累计比较 `compare_value`，返回其最大值对应的 `value`。当 `compare_value` 相等时，使用最新一条数据对应的 `value`。当没有有效的 `compare_value` 时，返回 `nil`。
 
 示例：获取累计最高温度对应的采集时间。
 

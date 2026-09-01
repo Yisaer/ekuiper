@@ -419,7 +419,7 @@ The results are: [1] [1,2] [1,2,3]
 acc_max_by(value, compare_value)
 ```
 
-The `acc_max_by` function cumulatively compares `compare_value` and returns the `value` associated with its greatest value. If `compare_value` is equal, the `value` from the latest event is used.
+The `acc_max_by` function cumulatively compares `compare_value` and returns the `value` associated with its greatest value. If `compare_value` is equal, the `value` from the latest event is used. It returns `nil` when there is no valid `compare_value`.
 
 Example: get the collection timestamp associated with the cumulative maximum temperature.
 

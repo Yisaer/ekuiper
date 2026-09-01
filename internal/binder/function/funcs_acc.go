@@ -192,7 +192,7 @@ func handleAccMaxBy(ctx api.FunctionContext, args []interface{}) (*accStatus, er
 	if len(args) != 4 && len(args) != 6 {
 		return nil, fmt.Errorf("wrong args length for acc_max_by: %d", len(args))
 	}
-	valid, key, status, err := extractAccArgs(ctx, args, accMaxByAccumulator{})
+	valid, key, status, err := extractAccStatus(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +210,6 @@ func handleAccMaxBy(ctx api.FunctionContext, args []interface{}) (*accStatus, er
 		return nil, status.Err
 	}
 	return status, nil
-}
-
-type accMaxByAccumulator struct{}
-
-func (accMaxByAccumulator) accReset(status *accStatus) { status.Value = nil }
-func (accMaxByAccumulator) accFuncExec(ctx api.FunctionContext, value interface{}, valid bool, key string, status *accStatus, skip bool) {
-	// This method is not used; acc_max_by has two input expressions.
 }
 
 func accMaxByExec(ctx api.FunctionContext, value, by interface{}, valid bool, key string, status *accStatus, skip bool) {
@@ -263,7 +256,14 @@ type accMapEntry struct {
 	Key   string
 	Value interface{}
 }
-type accMapAggStatus struct{ Entries []accMapEntry }
+type accMapAggStatus struct {
+	Entries []accMapEntry
+	Index   map[string]int
+}
+
+func newAccMapAggStatus() *accMapAggStatus {
+	return &accMapAggStatus{Index: make(map[string]int)}
+}
 
 func (s *accMapAggStatus) result() []map[string]interface{} {
 	r := make([]map[string]interface{}, 0, len(s.Entries))
@@ -294,7 +294,7 @@ func handleAccMapAgg(ctx api.FunctionContext, args []interface{}) (*accStatus, e
 		status = v.(*accStatus)
 	}
 	if status.Value == nil {
-		status.Value = &accMapAggStatus{}
+		status.Value = newAccMapAggStatus()
 	}
 	if len(args) == 6 {
 		begin, ok1 := args[3].(bool)
@@ -303,7 +303,7 @@ func handleAccMapAgg(ctx api.FunctionContext, args []interface{}) (*accStatus, e
 			return nil, fmt.Errorf("acc_map_agg conditions should be boolean")
 		}
 		if !status.HasBegin {
-			status.Value = &accMapAggStatus{}
+			status.Value = newAccMapAggStatus()
 		}
 		if begin && !status.HasBegin {
 			status.HasBegin = true
@@ -336,12 +336,17 @@ func accMapAggExec(ctx api.FunctionContext, k, value interface{}, valid bool, st
 		return
 	}
 	s := status.Value.(*accMapAggStatus)
-	for i := range s.Entries {
-		if s.Entries[i].Key == ks {
-			s.Entries[i].Value = value
-			return
+	if s.Index == nil {
+		s.Index = make(map[string]int, len(s.Entries))
+		for i, entry := range s.Entries {
+			s.Index[entry.Key] = i
 		}
 	}
+	if i, ok := s.Index[ks]; ok {
+		s.Entries[i].Value = value
+		return
+	}
+	s.Index[ks] = len(s.Entries)
 	s.Entries = append(s.Entries, accMapEntry{Key: ks, Value: value})
 }
 
@@ -383,8 +388,25 @@ func handleOnCondAccFunc(ctx api.FunctionContext, args []interface{}, validData 
 }
 
 func extractAccArgs(ctx api.FunctionContext, args []interface{}, accFunc accFunc) (validData bool, partitionKey string, status *accStatus, err error) {
-	partitionKey = args[len(args)-1].(string)
-	validData = args[len(args)-2].(bool)
+	validData, partitionKey, status, err = extractAccStatus(ctx, args)
+	if err != nil {
+		return false, "", nil, err
+	}
+	if status.Value == nil {
+		accFunc.accReset(status)
+	}
+	return validData, partitionKey, status, nil
+}
+
+func extractAccStatus(ctx api.FunctionContext, args []interface{}) (validData bool, partitionKey string, status *accStatus, err error) {
+	partitionKey, ok := args[len(args)-1].(string)
+	if !ok {
+		return false, "", nil, fmt.Errorf("invalid state key")
+	}
+	validData, ok = args[len(args)-2].(bool)
+	if !ok {
+		return false, "", nil, fmt.Errorf("valid data should be boolean")
+	}
 	val, err := ctx.GetState(partitionKey)
 	if err != nil {
 		return false, "", nil, err
@@ -392,11 +414,11 @@ func extractAccArgs(ctx api.FunctionContext, args []interface{}, accFunc accFunc
 	if val == nil {
 		val = &accStatus{}
 	}
-	status = val.(*accStatus)
-	status.Err = nil
-	if status.Value == nil {
-		accFunc.accReset(status)
+	status, ok = val.(*accStatus)
+	if !ok {
+		return false, "", nil, fmt.Errorf("invalid accumulator state type %T", val)
 	}
+	status.Err = nil
 	return validData, partitionKey, status, nil
 }
 
