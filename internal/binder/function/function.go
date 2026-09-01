@@ -70,18 +70,18 @@ func init() {
 //}
 
 var analyticFuncs = map[string]struct{}{
-	"lag":         {},
-	"changed_col": {},
-	"had_changed": {},
-	"latest":      {},
-	"acc_sum":     {},
-	"acc_min":     {},
-	"acc_max":     {},
-	"acc_avg":     {},
-	"acc_count":   {},
-	"acc_collect": {},
-	"acc_max_by":  {},
-	"acc_map_agg": {},
+	"lag":           {},
+	"changed_col":   {},
+	"had_changed":   {},
+	"latest":        {},
+	"acc_sum":       {},
+	"acc_min":       {},
+	"acc_max":       {},
+	"acc_avg":       {},
+	"acc_count":     {},
+	"acc_collect":   {},
+	"acc_max_by":    {},
+	"acc_map_agg":   {},
 	"acc_max_index": {},
 }
 
