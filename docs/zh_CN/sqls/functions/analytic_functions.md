@@ -439,26 +439,6 @@ acc_map_agg(soc, object_construct(
 ]
 ```
 
-### ACC_MAX_INDEX
-
-```text
-acc_max_index(array)
-```
-
-`acc_max_index` 统计累计数据中数组元素的最大值及其所有下标，返回包含 `max_temp` 和 `index` 字段的对象。当新的数组最大值更大时替换历史结果；相等时合并下标并去重。当没有有效数据时返回 `nil`。
-
-示例：统计充电过程内所有电池探针的最高温度及下标。
-
-```text
-acc_max_index(temp_arr)
-```
-
-结果示例：
-
-```json
-{"max_temp": 15, "index": [0, 2, 3]}
-```
-
 ### 带有条件的 ACC 函数
 
 ACC 函数可以通过额外接受表达式参数的方式来定义累计计算的开始点和重置点，具体用法如下

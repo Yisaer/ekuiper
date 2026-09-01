@@ -90,14 +90,6 @@ array_max(array)
 
 返回数组中的最大值, 数组元素中的 null 值将被忽略。array 为 nil 时则固定返回 nil。
 
-## ARRAY_MAX_INDEX
-
-```text
-array_max_index(array)
-```
-
-返回数组最大值对应的所有下标。数组为空或为 nil 时返回 nil。
-
 ## ARRAY_AVG
 
 ```text

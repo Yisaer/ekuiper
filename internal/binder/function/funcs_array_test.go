@@ -932,27 +932,6 @@ func TestArraySort(t *testing.T) {
 	}
 }
 
-func TestArrayMaxIndex(t *testing.T) {
-	registerArrayFunc()
-	f := builtins["array_max_index"]
-
-	result, ok := f.exec(nil, []interface{}{[]interface{}{15, 13, 11, 15, 11}})
-	require.True(t, ok)
-	require.Equal(t, []int{0, 3}, result)
-
-	result, ok = f.exec(nil, []interface{}{[]int64{12, 15, 15, 11}})
-	require.True(t, ok)
-	require.Equal(t, []int{1, 2}, result)
-
-	result, ok = f.exec(nil, []interface{}{[]interface{}{}})
-	require.True(t, ok)
-	require.Nil(t, result)
-
-	result, ok = f.exec(nil, []interface{}{"not an array"})
-	require.False(t, ok)
-	require.Error(t, result.(error))
-}
-
 func TestArrayFuncNil(t *testing.T) {
 	contextLogger := conf.Log.WithField("rule", "testExec")
 	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)

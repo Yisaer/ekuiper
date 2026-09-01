@@ -92,14 +92,6 @@ array_max(array)
 
 Returns an element which is greater than or equal to all other elements of the array. The null element will be ignored. When array is nil, nil is returned.
 
-## ARRAY_MAX_INDEX
-
-```text
-array_max_index(array)
-```
-
-Returns all indexes corresponding to the maximum value in the array. Returns nil when the array is empty or nil.
-
 ## ARRAY_AVG
 
 ```text

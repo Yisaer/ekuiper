@@ -217,7 +217,7 @@ func (s *RuleTestSuite) TestAccMaxByMapAggChargeCycle() {
 	// Start the downstream rule first so no intermediate memory messages are lost.
 	rule := fmt.Sprintf(`{
   "id": "%s",
-  "sql": "SELECT map_agg_to_array(acc_map_agg(soc, object_construct('max_temp', max_temp, 'max_temp_ts', max_temp_ts)), 'soc', object_construct('max_temp_ts', 'ts')) AS data FROM %s WHERE upload_flag = 1",
+  "sql": "SELECT acc_map_agg(soc, object_construct('max_temp', max_temp, 'max_temp_ts', max_temp_ts)) AS data FROM %s WHERE upload_flag = 1",
   "actions": [{"memory": {"topic": "%s"}}]
 }`, ruleDownstream, statStream, resultTopic)
 	resp, err = client.CreateRule(rule)
@@ -234,11 +234,11 @@ func (s *RuleTestSuite) TestAccMaxByMapAggChargeCycle() {
 	s.Require().Equal(http.StatusCreated, resp.StatusCode)
 
 	expected := map[string]any{"data": []map[string]any{
-		{"soc": int64(18), "max_temp": float64(30), "ts": float64(1788000060000)},
-		{"soc": int64(19), "max_temp": float64(32), "ts": float64(1788000120000)},
-		{"soc": int64(20), "max_temp": float64(33), "ts": float64(1788000210000)},
-		{"soc": int64(21), "max_temp": float64(35), "ts": float64(1788000300000)},
-		{"soc": int64(22), "max_temp": float64(34), "ts": float64(1788000330000)},
+		{"key": "18", "value": map[string]any{"max_temp": float64(30), "max_temp_ts": float64(1788000060000)}},
+		{"key": "19", "value": map[string]any{"max_temp": float64(32), "max_temp_ts": float64(1788000120000)}},
+		{"key": "20", "value": map[string]any{"max_temp": float64(33), "max_temp_ts": float64(1788000210000)}},
+		{"key": "21", "value": map[string]any{"max_temp": float64(35), "max_temp_ts": float64(1788000300000)}},
+		{"key": "22", "value": map[string]any{"max_temp": float64(34), "max_temp_ts": float64(1788000330000)}},
 	}}
 	s.assertRecvMemTuple(subCh, []map[string]any{expected})
 }
