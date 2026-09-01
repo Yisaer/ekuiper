@@ -159,7 +159,11 @@ func (p *DataSourcePlan) PushDownPredicate(condition ast.Expr) (ast.Expr, Logica
 }
 
 func (p *DataSourcePlan) extract(expr ast.Expr) (ast.Expr, ast.Expr) {
-	s, _ := getRefSources(expr)
+	s, hasDefault := getRefSources(expr)
+	l := len(s)
+	if hasDefault {
+		l += 1
+	}
 	switch len(s) {
 	case 0:
 		return expr, nil
