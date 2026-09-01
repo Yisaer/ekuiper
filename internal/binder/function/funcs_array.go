@@ -304,7 +304,7 @@ func registerArrayFunc() {
 		},
 		check: returnNilIfHasAnyNil,
 	}
-	builtins["max_index"] = builtinFunc{
+	builtins["array_max_index"] = builtinFunc{
 		fType: ast.FuncTypeScalar,
 		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
 			if args[0] == nil {
@@ -322,7 +322,7 @@ func registerArrayFunc() {
 			for i := 0; i < array.Len(); i++ {
 				value, err := cast.ToFloat64(array.Index(i).Interface(), cast.CONVERT_SAMEKIND)
 				if err != nil {
-					return fmt.Errorf("max_index array item should be number: %w", err), false
+					return fmt.Errorf("array_max_index array item should be number: %w", err), false
 				}
 				switch {
 				case len(indexes) == 0 || value > maxValue:

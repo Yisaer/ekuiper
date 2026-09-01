@@ -932,9 +932,9 @@ func TestArraySort(t *testing.T) {
 	}
 }
 
-func TestMaxIndex(t *testing.T) {
+func TestArrayMaxIndex(t *testing.T) {
 	registerArrayFunc()
-	f := builtins["max_index"]
+	f := builtins["array_max_index"]
 
 	result, ok := f.exec(nil, []interface{}{[]interface{}{15, 13, 11, 15, 11}})
 	require.True(t, ok)
