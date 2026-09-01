@@ -17,6 +17,8 @@ package function
 import (
 	"fmt"
 	"math"
+	"reflect"
+	"sort"
 
 	"github.com/lf-edge/ekuiper/contract/v2/api"
 
@@ -179,6 +181,123 @@ func registerGlobalAggFunc() {
 			}
 			return nil
 		},
+	}
+	builtins["acc_max_index"] = builtinFunc{
+		fType: ast.FuncTypeScalar,
+		exec: func(ctx api.FunctionContext, args []interface{}) (interface{}, bool) {
+			status, err := handleAccMaxIndex(ctx, args)
+			if err != nil {
+				return err, false
+			}
+			if status.Value == nil || !status.Value.(*accMaxIndexStatus).HasValue {
+				return nil, true
+			}
+			return status.Value.(*accMaxIndexStatus).result(), true
+		},
+		val: func(_ api.FunctionContext, args []ast.Expr) error {
+			if len(args) != 1 && len(args) != 3 {
+				return fmt.Errorf("Expect 1/3 arguments but found %d.", len(args))
+			}
+			return nil
+		},
+	}
+}
+
+type accMaxIndexStatus struct {
+	MaxTemp  float64
+	Index    []int
+	HasValue bool
+}
+
+func (s *accMaxIndexStatus) result() map[string]interface{} {
+	return map[string]interface{}{"max_temp": s.MaxTemp, "index": s.Index}
+}
+
+func handleAccMaxIndex(ctx api.FunctionContext, args []interface{}) (*accStatus, error) {
+	if len(args) != 3 && len(args) != 5 {
+		return nil, fmt.Errorf("wrong args length for acc_max_index: %d", len(args))
+	}
+	valid, key, status, err := extractAccStatus(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+	if status.Value == nil {
+		status.Value = &accMaxIndexStatus{}
+	}
+	if len(args) == 5 {
+		begin, ok1 := args[1].(bool)
+		reset, ok2 := args[2].(bool)
+		if !ok1 || !ok2 {
+			return nil, fmt.Errorf("acc_max_index conditions should be boolean")
+		}
+		if !status.HasBegin {
+			status.Value = &accMaxIndexStatus{}
+		}
+		if begin && !status.HasBegin {
+			status.HasBegin = true
+		}
+		if status.HasBegin {
+			accMaxIndexExec(ctx, args[0], valid, key, status)
+		}
+		if reset {
+			status.HasBegin = false
+		}
+	} else {
+		accMaxIndexExec(ctx, args[0], valid, key, status)
+	}
+	if status.Err != nil {
+		return nil, status.Err
+	}
+	if err := ctx.PutState(key, status); err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+func accMaxIndexExec(ctx api.FunctionContext, value interface{}, valid bool, key string, status *accStatus) {
+	if !valid || value == nil {
+		return
+	}
+	rv := reflect.ValueOf(value)
+	if rv.Kind() != reflect.Array && rv.Kind() != reflect.Slice {
+		status.Err = fmt.Errorf("acc_max_index argument should be an array")
+		return
+	}
+	var currentMax float64
+	currentIndex := make([]int, 0)
+	for i := 0; i < rv.Len(); i++ {
+		item := rv.Index(i).Interface()
+		v, err := cast.ToFloat64(item, cast.CONVERT_SAMEKIND)
+		if err != nil {
+			status.Err = fmt.Errorf("acc_max_index array item should be number: %w", err)
+			return
+		}
+		if len(currentIndex) == 0 || v > currentMax {
+			currentMax = v
+			currentIndex = []int{i}
+		} else if v == currentMax {
+			currentIndex = append(currentIndex, i)
+		}
+	}
+	if len(currentIndex) == 0 {
+		return
+	}
+	current := status.Value.(*accMaxIndexStatus)
+	if !current.HasValue || currentMax > current.MaxTemp {
+		current.MaxTemp = currentMax
+		current.Index = currentIndex
+		current.HasValue = true
+	} else if currentMax == current.MaxTemp {
+		seen := make(map[int]struct{}, len(current.Index))
+		for _, i := range current.Index {
+			seen[i] = struct{}{}
+		}
+		for _, i := range currentIndex {
+			if _, ok := seen[i]; !ok {
+				current.Index = append(current.Index, i)
+			}
+		}
+		sort.Ints(current.Index)
 	}
 }
 

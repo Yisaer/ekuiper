@@ -400,6 +400,54 @@ func TestAccMapAggEdgeCases(t *testing.T) {
 	require.Equal(t, []map[string]interface{}{}, result)
 }
 
+func TestAccMaxIndex(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMaxIndex")
+	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_max_index_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(ctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_max_index"]
+
+	args := func(values interface{}) []interface{} {
+		return []interface{}{values, true, "max_index"}
+	}
+	result, ok := f.exec(fctx, args([]int64{15, 13, 11, 15, 11}))
+	require.True(t, ok)
+	require.Equal(t, map[string]interface{}{"max_temp": float64(15), "index": []int{0, 3}}, result)
+	result, ok = f.exec(fctx, args([]int64{12, 11, 15, 15, 11}))
+	require.True(t, ok)
+	require.Equal(t, map[string]interface{}{"max_temp": float64(15), "index": []int{0, 2, 3}}, result)
+	result, ok = f.exec(fctx, args([]int64{16, 10, 16}))
+	require.True(t, ok)
+	require.Equal(t, map[string]interface{}{"max_temp": float64(16), "index": []int{0, 2}}, result)
+
+	result, ok = f.exec(fctx, []interface{}{[]int64{1, 2}, false, "invalid_max_index"})
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, []interface{}{[]int64{}, true, "empty_max_index"})
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, []interface{}{"not an array", true, "invalid_array"})
+	require.False(t, ok)
+	_, isErr := result.(error)
+	require.True(t, isErr)
+
+	conditionalArgs := func(values interface{}, begin, reset, valid bool) []interface{} {
+		return []interface{}{values, begin, reset, valid, "conditional_max_index"}
+	}
+	result, ok = f.exec(fctx, conditionalArgs([]int64{1, 2}, false, false, true))
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, conditionalArgs([]int64{3, 1}, true, false, true))
+	require.True(t, ok)
+	require.Equal(t, map[string]interface{}{"max_temp": float64(3), "index": []int{0}}, result)
+	result, ok = f.exec(fctx, conditionalArgs([]int64{3, 3}, false, true, true))
+	require.True(t, ok)
+	require.Equal(t, map[string]interface{}{"max_temp": float64(3), "index": []int{0, 1}}, result)
+	result, ok = f.exec(fctx, conditionalArgs([]int64{2, 2}, false, false, true))
+	require.True(t, ok)
+	require.Nil(t, result)
+}
+
 func TestAccCollectFuncDirect(t *testing.T) {
 	contextLogger := conf.Log.WithField("rule", "testExec")
 	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)

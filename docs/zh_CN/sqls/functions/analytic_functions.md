@@ -437,6 +437,27 @@ acc_map_agg(soc, object_construct(
   {"key": "18", "value": {"max_temp": 30, "max_temp_ts": 1788000060000}},
   {"key": "19", "value": {"max_temp": 31, "max_temp_ts": 1788000090000}}
 ]
+```
+
+### ACC_MAX_INDEX
+
+```text
+acc_max_index(array)
+```
+
+`acc_max_index` 统计累计数据中数组元素的最大值及其所有下标，返回包含 `max_temp` 和 `index` 字段的对象。当新的数组最大值更大时替换历史结果；相等时合并下标并去重。当没有有效数据时返回 `nil`。
+
+示例：统计充电过程内所有电池探针的最高温度及下标。
+
+```text
+acc_max_index(temp_arr)
+```
+
+结果示例：
+
+```json
+{"max_temp": 15, "index": [0, 2, 3]}
+```
 
 ### 带有条件的 ACC 函数
 

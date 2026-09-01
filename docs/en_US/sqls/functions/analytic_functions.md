@@ -453,6 +453,27 @@ Example result:
   {"key": "18", "value": {"max_temp": 30, "max_temp_ts": 1788000060000}},
   {"key": "19", "value": {"max_temp": 31, "max_temp_ts": 1788000090000}}
 ]
+```
+
+### ACC_MAX_INDEX
+
+```text
+acc_max_index(array)
+```
+
+The `acc_max_index` function cumulatively finds the maximum array element and all its indexes. It returns an object containing `max_temp` and `index` fields. A greater array maximum replaces the previous result; an equal maximum merges and deduplicates the indexes. It returns `nil` when there is no valid data.
+
+Example: find the maximum temperature and indexes of all battery probes during charging.
+
+```text
+acc_max_index(temp_arr)
+```
+
+Example result:
+
+```json
+{"max_temp": 15, "index": [0, 2, 3]}
+```
 
 ### ACC function with conditions
 
