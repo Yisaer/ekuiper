@@ -2,6 +2,7 @@ package function
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -338,6 +339,15 @@ func TestAccMaxByEdgeCases(t *testing.T) {
 	result, ok = f.exec(fctx, []interface{}{int64(1), int64(1), false, "invalid_data"})
 	require.True(t, ok)
 	require.Nil(t, result)
+	result, ok = f.exec(fctx, []interface{}{int64(1), math.NaN(), true, "nan_by"})
+	require.True(t, ok)
+	require.Nil(t, result)
+	result, ok = f.exec(fctx, []interface{}{int64(2), int64(10), true, "nan_by"})
+	require.True(t, ok)
+	require.Equal(t, int64(2), result)
+	result, ok = f.exec(fctx, []interface{}{int64(3), math.NaN(), true, "nan_by"})
+	require.True(t, ok)
+	require.Equal(t, int64(2), result)
 
 	// Conditional accumulation starts only after begin and resets after reset.
 	args := func(value, by int64, valid, begin, reset bool) []interface{} {

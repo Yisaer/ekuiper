@@ -168,9 +168,6 @@ func registerGlobalAggFunc() {
 			if err != nil {
 				return err, false
 			}
-			if status.Value == nil {
-				return []map[string]interface{}{}, true
-			}
 			return status.Value.(*accMapAggStatus).result(), true
 		},
 		val: func(_ api.FunctionContext, args []ast.Expr) error {
@@ -221,8 +218,11 @@ func accMaxByExec(ctx api.FunctionContext, value, by interface{}, valid bool, ke
 		status.Err = fmt.Errorf("acc_max_by compare_value should be number: %w", err)
 		return
 	}
+	if math.IsNaN(b) {
+		return
+	}
 	current, ok := status.Value.(*accMaxByStatus)
-	if !ok || b >= current.By {
+	if !ok || math.IsNaN(current.By) || b >= current.By {
 		status.Value = &accMaxByStatus{Value: value, By: b}
 	}
 	if !skip {
