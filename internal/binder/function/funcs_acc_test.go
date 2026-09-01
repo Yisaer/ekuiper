@@ -312,6 +312,13 @@ func TestAccMapAgg(t *testing.T) {
 		{"key": "18", "value": map[string]interface{}{"max_temp": int64(30)}},
 		{"key": "19", "value": map[string]interface{}{"max_temp": int64(31)}},
 	}, result)
+
+	// Reinitialize an incompatible accumulator value instead of panicking.
+	err := fctx.PutState("wrong_map_type", &accStatus{Value: int64(1)})
+	require.NoError(t, err)
+	result, ok = f.exec(fctx, []interface{}{20, map[string]interface{}{"max_temp": int64(33)}, true, "wrong_map_type"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"key": "20", "value": map[string]interface{}{"max_temp": int64(33)}}}, result)
 }
 
 func TestAccMaxByEdgeCases(t *testing.T) {

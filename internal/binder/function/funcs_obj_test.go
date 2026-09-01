@@ -845,9 +845,22 @@ func TestMapAggToArray(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, []map[string]interface{}{{"soc": int64(18), "max_temp": 30, "max_temp_ts": int64(1788000060000)}}, result)
 
-	result, ok = f.exec(nil, []interface{}{input, 1})
+	result, ok = f.exec(nil, []interface{}{[]map[string]interface{}{
+		{"key": "18", "value": map[string]interface{}{"soc": "overwritten", "max_temp": 30}},
+	}, "soc"})
+	require.True(t, ok)
+	require.Equal(t, []map[string]interface{}{{"soc": int64(18), "max_temp": 30}}, result)
+
+	result, ok = f.exec(nil, []interface{}{[]map[string]interface{}{
+		{"key": "18", "value": map[string]interface{}{"a": 30, "b": 31}},
+	}, "soc", map[string]interface{}{"a": "temp", "b": "temp"}})
 	require.False(t, ok)
 	_, isErr := result.(error)
+	require.True(t, isErr)
+
+	result, ok = f.exec(nil, []interface{}{input, 1})
+	require.False(t, ok)
+	_, isErr = result.(error)
 	require.True(t, isErr)
 	result, ok = f.exec(nil, []interface{}{[]interface{}{map[string]interface{}{"key": "18"}}, "soc"})
 	require.False(t, ok)

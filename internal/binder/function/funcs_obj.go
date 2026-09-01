@@ -17,6 +17,7 @@ package function
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/lf-edge/ekuiper/contract/v2/api"
@@ -386,14 +387,27 @@ func mapAggToArray(input interface{}, keyName string, rename map[string]string) 
 		if !ok {
 			return nil, fmt.Errorf("each array item value should be an object")
 		}
-		converted := map[string]interface{}{keyName: keyValue}
-		for source, fieldValue := range value {
+		converted := make(map[string]interface{}, len(value)+1)
+		sources := make([]string, 0, len(value))
+		for source := range value {
+			sources = append(sources, source)
+		}
+		sort.Strings(sources)
+		for _, source := range sources {
+			fieldValue := value[source]
 			target := source
 			if renamed, ok := rename[source]; ok {
 				target = renamed
 			}
+			if target == keyName {
+				continue
+			}
+			if _, exists := converted[target]; exists {
+				return nil, fmt.Errorf("value fields conflict after rename at %q", target)
+			}
 			converted[target] = fieldValue
 		}
+		converted[keyName] = keyValue
 		result = append(result, converted)
 	}
 	return result, nil

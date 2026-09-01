@@ -121,6 +121,12 @@ example:
 object_construct("a", 1, "b", 2)
 ```
 
+result:
+
+```sql
+{"a":1, "b":2}
+```
+
 ## MAP_AGG_TO_ARRAY
 
 ```text
@@ -144,7 +150,7 @@ Converts `{"key":"18","value":{"max_temp":30,"max_temp_ts":1788000060000}}` to `
 result:
 
 ```sql
-{"a":1, "b":2}
+[{"soc":18, "max_temp":30, "ts":1788000060000}]
 ```
 
 ## OBJECT_CONCAT

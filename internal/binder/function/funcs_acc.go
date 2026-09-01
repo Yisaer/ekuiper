@@ -301,7 +301,7 @@ func accMaxIndexExec(ctx api.FunctionContext, value interface{}, valid bool, key
 	}
 }
 
-// accMaxByStatus keeps the value x associated with the greatest y seen so far.
+// accMaxByStatus keeps the latest value when compare values are equal.
 type accMaxByStatus struct {
 	Value interface{}
 	By    float64
@@ -337,7 +337,7 @@ func accMaxByExec(ctx api.FunctionContext, value, by interface{}, valid bool, ke
 	}
 	b, err := cast.ToFloat64(by, cast.CONVERT_SAMEKIND)
 	if err != nil {
-		status.Err = fmt.Errorf("acc_max_by y should be number: %w", err)
+		status.Err = fmt.Errorf("acc_max_by compare_value should be number: %w", err)
 		return
 	}
 	current, ok := status.Value.(*accMaxByStatus)
@@ -396,23 +396,11 @@ func handleAccMapAgg(ctx api.FunctionContext, args []interface{}) (*accStatus, e
 	if len(args) != 4 && len(args) != 6 {
 		return nil, fmt.Errorf("wrong args length for acc_map_agg: %d", len(args))
 	}
-	key, ok := args[len(args)-1].(string)
-	if !ok {
-		return nil, fmt.Errorf("invalid state key")
-	}
-	valid, ok := args[len(args)-2].(bool)
-	if !ok {
-		return nil, fmt.Errorf("valid data should be boolean")
-	}
-	v, err := ctx.GetState(key)
+	valid, key, status, err := extractAccStatus(ctx, args)
 	if err != nil {
 		return nil, err
 	}
-	status := &accStatus{}
-	if v != nil {
-		status = v.(*accStatus)
-	}
-	if status.Value == nil {
+	if _, ok := status.Value.(*accMapAggStatus); !ok {
 		status.Value = newAccMapAggStatus()
 	}
 	if len(args) == 6 {

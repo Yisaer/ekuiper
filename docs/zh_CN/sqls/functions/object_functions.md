@@ -105,6 +105,12 @@ object_construct(key1, col, ...)
 object_construct("a", 1, "b", 2)
 ```
 
+得到如下结果:
+
+```sql
+{"a":1, "b":2}
+```
+
 ## MAP_AGG_TO_ARRAY
 
 ```text
@@ -128,7 +134,7 @@ map_agg_to_array(
 得到如下结果:
 
 ```sql
-{"a":1, "b":2}
+[{"soc":18, "max_temp":30, "ts":1788000060000}]
 ```
 
 ## OBJECT_CONCAT
