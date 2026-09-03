@@ -11,6 +11,7 @@ import (
 	"github.com/lf-edge/ekuiper/v2/internal/pkg/def"
 	kctx "github.com/lf-edge/ekuiper/v2/internal/topo/context"
 	"github.com/lf-edge/ekuiper/v2/internal/topo/state"
+	"github.com/lf-edge/ekuiper/v2/pkg/ast"
 )
 
 func TestAccumulateAggCond(t *testing.T) {
@@ -349,6 +350,56 @@ func TestAccMinByEdgeCases(t *testing.T) {
 	result, ok = f.exec(fctx, args(5, 1, true, false, false))
 	require.True(t, ok)
 	require.Nil(t, result)
+}
+
+func TestAccMinByValidationAndState(t *testing.T) {
+	contextLogger := conf.Log.WithField("rule", "testAccMinByValidationAndState")
+	ctx := kctx.WithValue(kctx.Background(), kctx.LoggerKey, contextLogger)
+	tempStore, _ := state.CreateStore("acc_min_by_validation_test", def.AtMostOnce)
+	fctx := kctx.NewDefaultFuncContext(ctx.WithMeta("mockRule0", "test", tempStore), 0)
+	f := builtins["acc_min_by"]
+
+	// The validator accepts the normal and conditional forms only.
+	require.NoError(t, f.val(fctx, []ast.Expr{nil, nil}))
+	require.NoError(t, f.val(fctx, []ast.Expr{nil, nil, nil, nil}))
+	require.Error(t, f.val(fctx, []ast.Expr{nil}))
+	require.Error(t, f.val(fctx, []ast.Expr{nil, nil, nil}))
+	require.Error(t, f.val(fctx, []ast.Expr{nil, nil, nil, nil, nil}))
+
+	result, ok := f.exec(fctx, []interface{}{int64(1), int64(1)})
+	require.False(t, ok)
+	_, isErr := result.(error)
+	require.True(t, isErr)
+	result, ok = f.exec(fctx, []interface{}{int64(1), int64(1), "bad", true, true, "bad_conditions"})
+	require.False(t, ok)
+	_, isErr = result.(error)
+	require.True(t, isErr)
+	result, ok = f.exec(fctx, []interface{}{int64(1), int64(1), true, 123})
+	require.False(t, ok)
+	_, isErr = result.(error)
+	require.True(t, isErr)
+
+	// Invalid data does not replace the current result.
+	result, ok = f.exec(fctx, []interface{}{int64(1), float64(2.5), true, "validity"})
+	require.True(t, ok)
+	require.Equal(t, int64(1), result)
+	result, ok = f.exec(fctx, []interface{}{int64(2), float64(1.5), false, "validity"})
+	require.True(t, ok)
+	require.Equal(t, int64(1), result)
+	result, ok = f.exec(fctx, []interface{}{int64(3), "invalid", true, "invalid_value"})
+	require.False(t, ok)
+	_, isErr = result.(error)
+	require.True(t, isErr)
+
+	// Recover from an incompatible or malformed accumulator state.
+	require.NoError(t, fctx.PutState("wrong_type", &accStatus{Value: int64(1)}))
+	result, ok = f.exec(fctx, []interface{}{int64(4), int64(4), true, "wrong_type"})
+	require.True(t, ok)
+	require.Equal(t, int64(4), result)
+	require.NoError(t, fctx.PutState("nan_state", &accStatus{Value: &accMinByStatus{Value: int64(5), By: math.NaN()}}))
+	result, ok = f.exec(fctx, []interface{}{int64(6), int64(6), true, "nan_state"})
+	require.True(t, ok)
+	require.Equal(t, int64(6), result)
 }
 
 func TestAccMapAgg(t *testing.T) {
